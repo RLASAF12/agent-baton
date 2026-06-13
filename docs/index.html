@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentBaton — Handoff Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --orange: #d29922;
+      --red: #f85149;
+      --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
+    .logo svg { width: 28px; height: 28px; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .project-select {
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 13px;
+    }
+    .btn {
+      background: var(--accent); color: #000; border: none; padding: 6px 14px;
+      border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-ghost {
+      background: transparent; color: var(--muted); border: 1px solid var(--border);
+      padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+    main { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.blue  { color: var(--accent); }
+    .stat-value.purple{ color: var(--purple); }
+
+    .section-title {
+      font-size: 14px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .baton-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .baton-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .baton-card:hover { border-color: var(--accent); }
+    .baton-card.expanded .baton-body { display: block; }
+
+    .baton-header {
+      display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    }
+    .agent-badge {
+      font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px;
+      border: 1px solid; white-space: nowrap;
+    }
+    .agent-cursor    { color: #79c0ff; border-color: #79c0ff33; background: #79c0ff11; }
+    .agent-claude-code { color: var(--purple); border-color: #bc8cff33; background: #bc8cff11; }
+    .agent-codex     { color: var(--green);  border-color: #3fb95033; background: #3fb95011; }
+    .agent-cline     { color: var(--orange); border-color: #d2992233; background: #d2992211; }
+    .agent-unknown   { color: var(--muted);  border-color: var(--border); background: transparent; }
+
+    .baton-tag { font-weight: 600; font-size: 14px; color: var(--text); }
+    .baton-summary-preview { font-size: 13px; color: var(--muted); flex: 1;
+                              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .baton-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .chevron { color: var(--muted); transition: transform 0.2s; margin-left: 8px; }
+    .baton-card.expanded .chevron { transform: rotate(90deg); }
+
+    .baton-body {
+      display: none;
+      padding: 0 16px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .baton-body h3 {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin: 14px 0 6px;
+    }
+    .baton-body p, .baton-body li { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .baton-body ul { padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+    .baton-body .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      font-size: 11px; padding: 3px 10px; border-radius: 20px;
+      background: #21262d; border: 1px solid var(--border); color: var(--text);
+    }
+    .receive-cmd {
+      margin-top: 14px;
+      background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px 12px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12px; color: var(--green); position: relative;
+    }
+    .copy-btn {
+      position: absolute; right: 8px; top: 8px;
+      background: var(--border); border: none; color: var(--muted);
+      padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;
+    }
+    .copy-btn:hover { background: var(--accent); color: #000; }
+
+    .empty-state {
+      text-align: center; padding: 60px 24px; color: var(--muted);
+    }
+    .empty-state svg { opacity: 0.3; margin-bottom: 16px; }
+    .empty-state h2 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+    .empty-state p { font-size: 14px; line-height: 1.6; max-width: 400px; margin: 0 auto 20px; }
+    .empty-state code {
+      background: var(--surface); border: 1px solid var(--border); padding: 2px 6px;
+      border-radius: 4px; font-size: 12px; color: var(--accent);
+    }
+
+    .loading { text-align: center; padding: 40px; color: var(--muted); }
+    .spinner {
+      width: 24px; height: 24px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Config Modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      z-index: 200; align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 28px; width: 480px; max-width: 95vw;
+    }
+    .modal h2 { font-size: 18px; margin-bottom: 6px; }
+    .modal p { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+    .modal label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .modal input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 14px;
+    }
+    .modal input:focus { outline: none; border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+    .demo-note {
+      background: #1c2a1c; border: 1px solid #3fb95033; border-radius: 6px;
+      padding: 10px 12px; font-size: 12px; color: #7ee787; margin-bottom: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .stats-row { grid-template-columns: 1fr; }
+      .baton-summary-preview { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 7L21 7" stroke="#58a6ff" stroke-width="2" stroke-linecap="round"/>
+      <path d="M7 14L21 14" stroke="#bc8cff" stroke-width="2" stroke-linecap="round"/>
+      <path d="M7 21L21 21" stroke="#3fb950" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="7" cy="7" r="3" fill="#58a6ff"/>
+      <circle cx="21" cy="14" r="3" fill="#bc8cff"/>
+      <circle cx="7" cy="21" r="3" fill="#3fb950"/>
+      <path d="M7 7 Q14 10.5 21 14" stroke="#58a6ff44" stroke-width="1.5"/>
+      <path d="M21 14 Q14 17.5 7 21" stroke="#bc8cff44" stroke-width="1.5"/>
+    </svg>
+    AgentBaton
+  </div>
+  <div class="header-right">
+    <select class="project-select" id="projectSelect" onchange="load()">
+      <option value="default">project: default</option>
+    </select>
+    <button class="btn-ghost" onclick="openConfig()">⚙ Config</button>
+    <button class="btn" onclick="load()">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Batons</div>
+      <div class="stat-value blue" id="statTotal">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unique Tags</div>
+      <div class="stat-value purple" id="statTags">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Handoff</div>
+      <div class="stat-value green" id="statLast" style="font-size:14px;margin-top:8px">—</div>
+    </div>
+  </div>
+
+  <div class="section-title">Handoff Timeline</div>
+  <div class="baton-list" id="batonList">
+    <div class="loading"><div class="spinner"></div>Loading batons…</div>
+  </div>
+</main>
+
+<!-- Config Modal -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <h2>⚙ Configure Instance</h2>
+    <p>By default, the dashboard shows the AgentBaton demo instance. To use your own Supabase project, enter your credentials below. They're stored in localStorage — never sent anywhere else.</p>
+    <div class="demo-note">
+      ✓ Demo instance is live. You can explore without configuring anything.
+    </div>
+    <label>Supabase Project URL</label>
+    <input id="cfgUrl" placeholder="https://your-project.supabase.co" />
+    <label>Supabase Anon Key (public)</label>
+    <input id="cfgKey" placeholder="eyJh…" />
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="resetConfig()">Use Demo</button>
+      <button class="btn-ghost" onclick="closeConfig()">Cancel</button>
+      <button class="btn" onclick="saveConfig()">Save & Reload</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+const DEMO_URL = 'https://beseparjuerxjygszlta.supabase.co';
+const DEMO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2VwYXJqdWVyeGp5Z3N6bHRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODY2OTYsImV4cCI6MjA5Njk2MjY5Nn0.olesTppkswAP5360f2A5Qn9w5pRHTPt0POGfqKtfI3Y';
+
+function getConfig() {
+  return {
+    url: localStorage.getItem('ab_url') || DEMO_URL,
+    key: localStorage.getItem('ab_key') || DEMO_KEY
+  };
+}
+
+function openConfig() {
+  const c = getConfig();
+  document.getElementById('cfgUrl').value = c.url === DEMO_URL ? '' : c.url;
+  document.getElementById('cfgKey').value = c.key === DEMO_KEY ? '' : c.key;
+  document.getElementById('configModal').classList.add('open');
+}
+function closeConfig() { document.getElementById('configModal').classList.remove('open'); }
+function saveConfig() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  const key = document.getElementById('cfgKey').value.trim();
+  if (url) localStorage.setItem('ab_url', url); else localStorage.removeItem('ab_url');
+  if (key) localStorage.setItem('ab_key', key); else localStorage.removeItem('ab_key');
+  closeConfig(); load();
+}
+function resetConfig() {
+  localStorage.removeItem('ab_url'); localStorage.removeItem('ab_key');
+  closeConfig(); load();
+}
+
+// ─── API ─────────────────────────────────────────────────────────────────────
+async function fetchBatons(project, limit = 30) {
+  const { url, key } = getConfig();
+  const res = await fetch(
+    `${url}/rest/v1/batons?project=eq.${encodeURIComponent(project)}&order=created_at.desc&limit=${limit}&select=*`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+  );
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function fetchProjects() {
+  const { url, key } = getConfig();
+  const res = await fetch(
+    `${url}/rest/v1/batons?select=project&limit=100`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+  );
+  if (!res.ok) return ['default'];
+  const rows = await res.json();
+  const projects = [...new Set(rows.map(r => r.project))].sort();
+  return projects.length ? projects : ['default'];
+}
+
+// ─── UI ──────────────────────────────────────────────────────────────────────
+function agentBadge(name) {
+  const cls = name === 'cursor' ? 'agent-cursor'
+    : name === 'claude-code' ? 'agent-claude-code'
+    : name === 'codex' ? 'agent-codex'
+    : name === 'cline' ? 'agent-cline'
+    : 'agent-unknown';
+  return `<span class="agent-badge ${cls}">${name}</span>`;
+}
+
+function timeAgo(iso) {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+function pillList(arr) {
+  if (!arr || !arr.length) return '<span style="color:var(--muted);font-size:12px">none</span>';
+  return `<div class="pill-row">${arr.map(x => `<span class="pill">${x}</span>`).join('')}</div>`;
+}
+
+function bulletList(arr) {
+  if (!arr || !arr.length) return '<span style="color:var(--muted);font-size:12px">none</span>';
+  return `<ul>${arr.map(x => `<li>${x}</li>`).join('')}</ul>`;
+}
+
+function renderBaton(b) {
+  const rcv = `baton_receive(tag="${b.tag}", project="${b.project}")`;
+  return `
+    <div class="baton-card" onclick="toggleCard(this)">
+      <div class="baton-header">
+        ${agentBadge(b.agent_name)}
+        <span class="baton-tag">${b.tag}</span>
+        <span class="baton-summary-preview">${b.summary}</span>
+        <span class="baton-time">${timeAgo(b.created_at)}</span>
+        <span class="chevron">›</span>
+      </div>
+      <div class="baton-body">
+        <h3>Summary</h3>
+        <p>${b.summary}</p>
+
+        <h3>✅ Completed</h3>
+        ${bulletList(b.completed)}
+
+        <h3>🔲 Pending</h3>
+        ${bulletList(b.pending)}
+
+        <h3>🧠 Key Decisions</h3>
+        ${bulletList(b.key_decisions)}
+
+        <h3>📁 Files Touched</h3>
+        ${pillList(b.files_touched)}
+
+        <h3>🚧 Blockers</h3>
+        ${bulletList(b.blockers)}
+
+        <h3>📌 What Next Agent Needs</h3>
+        ${bulletList(b.next_agent_needs)}
+
+        <div class="receive-cmd" title="Click to copy">
+          ${rcv}
+          <button class="copy-btn" onclick="copyText(event,'${rcv.replace(/'/g,"\\'")}')">copy</button>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px">
+          ID: ${b.id} · ${new Date(b.created_at).toLocaleString()}
+        </p>
+      </div>
+    </div>`;
+}
+
+function toggleCard(el) {
+  el.classList.toggle('expanded');
+}
+
+function copyText(e, text) {
+  e.stopPropagation();
+  navigator.clipboard.writeText(text);
+  const btn = e.target;
+  btn.textContent = 'copied!';
+  setTimeout(() => btn.textContent = 'copy', 1500);
+}
+
+function renderEmpty() {
+  return `<div class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="8" y="8" width="32" height="32" rx="6" stroke="#8b949e" stroke-width="2"/><path d="M16 24h16M24 16v16" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/></svg>
+    <h2>No batons yet</h2>
+    <p>Pass your first context snapshot from any coding agent:</p>
+    <p><code>baton_pass(tag="my-feature", summary="Working on auth module…")</code></p>
+  </div>`;
+}
+
+async function load() {
+  const listEl  = document.getElementById('batonList');
+  const selEl   = document.getElementById('projectSelect');
+  const project = selEl.value;
+  listEl.innerHTML = '<div class="loading"><div class="spinner"></div>Loading…</div>';
+
+  try {
+    // Refresh project list
+    const projects = await fetchProjects();
+    const curProject = selEl.value;
+    selEl.innerHTML = projects.map(p =>
+      `<option value="${p}" ${p === curProject ? 'selected' : ''}>project: ${p}</option>`
+    ).join('');
+
+    const batons = await fetchBatons(project);
+
+    // Stats
+    document.getElementById('statTotal').textContent = batons.length;
+    document.getElementById('statTags').textContent = new Set(batons.map(b => b.tag)).size;
+    document.getElementById('statLast').textContent = batons.length
+      ? timeAgo(batons[0].created_at) : '—';
+
+    listEl.innerHTML = batons.length
+      ? batons.map(renderBaton).join('')
+      : renderEmpty();
+
+  } catch (err) {
+    listEl.innerHTML = `<div class="empty-state">
+      <h2>Connection error</h2>
+      <p>${err.message}</p>
+      <button class="btn" onclick="openConfig()">Configure credentials</button>
+    </div>`;
+  }
+}
+
+// Init: parse ?project= from URL
+const urlProject = new URLSearchParams(location.search).get('project');
+if (urlProject) document.getElementById('projectSelect').value = urlProject;
+load();
+</script>
+</body>
+</html>
