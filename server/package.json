@@ -1,0 +1,26 @@
+{
+  "name": "agent-baton",
+  "version": "1.0.0",
+  "description": "MCP server: pass structured context between AI coding agent sessions. No more starting from scratch.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "agent-baton": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "ai-agents",
+    "claude-code",
+    "cursor",
+    "codex",
+    "context-handoff",
+    "multi-agent"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}
